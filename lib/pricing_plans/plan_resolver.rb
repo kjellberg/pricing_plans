@@ -37,7 +37,17 @@ module PricingPlans
           return plan_from_pay if plan_from_pay
         end
 
-        # 3. Fall back to default plan
+        # 3. Check PaddleRails subscription
+        if PaddleRailsSupport.paddle_rails_available?
+          log_debug "[PricingPlans::PlanResolver] PaddleRails available, checking subscription..."
+          plan_from_paddle = resolve_plan_from_paddle_rails(plan_owner)
+          if plan_from_paddle
+            log_debug "[PricingPlans::PlanResolver] Matched PaddleRails plan: #{plan_from_paddle.key}"
+            return plan_from_paddle
+          end
+        end
+
+        # 4. Fall back to default plan
         default = Registry.default_plan
         log_debug "[PricingPlans::PlanResolver] Returning default plan: #{default ? default.key : 'nil'}"
         default
@@ -89,7 +99,12 @@ module PricingPlans
           log_debug "[PricingPlans::PlanResolver] current_subscription_for returned: #{subscription ? subscription.class.name : 'nil'}"
           return nil unless subscription
 
-          # Map processor plan to our plan
+          # Map processor plan to our plan (only Pay::Subscription has processor_plan)
+          unless subscription.respond_to?(:processor_plan)
+            log_debug "[PricingPlans::PlanResolver] subscription does not respond to processor_plan (#{subscription.class.name}), skipping"
+            return nil
+          end
+
           processor_plan = subscription.processor_plan
           log_debug "[PricingPlans::PlanResolver] subscription.processor_plan = #{processor_plan.inspect}"
 
@@ -102,6 +117,42 @@ module PricingPlans
 
         log_debug "[PricingPlans::PlanResolver] resolve_plan_from_pay returning nil"
         nil
+      end
+
+      def resolve_plan_from_paddle_rails(plan_owner)
+        return nil unless PaddleRailsSupport.subscription_active_for?(plan_owner)
+
+        subscription = PaddleRailsSupport.current_subscription_for(plan_owner)
+        return nil unless subscription
+
+        price_ids = PaddleRailsSupport.paddle_rails_price_ids_for(subscription)
+        return nil if price_ids.empty?
+
+        price_ids.each do |price_id|
+          matched = plan_from_paddle_rails_price(price_id)
+          return matched if matched
+        end
+
+        nil
+      end
+
+      def plan_from_paddle_rails_price(paddle_rails_price_id)
+        Registry.plans.values.find do |plan|
+          pp = plan.paddle_rails_price
+          next unless pp
+
+          case pp
+          when String
+            pp == paddle_rails_price_id
+          when Hash
+            pp[:id] == paddle_rails_price_id ||
+              pp[:month] == paddle_rails_price_id ||
+              pp[:year] == paddle_rails_price_id ||
+              pp.values.include?(paddle_rails_price_id)
+          else
+            false
+          end
+        end
       end
 
       def plan_from_processor_plan(processor_plan)

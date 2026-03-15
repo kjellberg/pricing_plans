@@ -1,6 +1,6 @@
-# Using `pricing_plans` with `pay` and/or `usage_credits`
+# Using `pricing_plans` with `pay`, `paddle_rails`, and/or `usage_credits`
 
-`pricing_plans` is designed to work seamlessly with other complementary popular gems like [`pay`](https://github.com/pay-rails/pay) (to handle actual subscriptions and payments), and `usage_credits` (to handle credit-like spending and refills)
+`pricing_plans` is designed to work seamlessly with other complementary popular gems like [`pay`](https://github.com/pay-rails/pay) (to handle actual subscriptions and payments via Stripe), [`paddle_rails`](https://github.com/rameerez/paddle_rails) (to handle subscriptions and payments via Paddle), and `usage_credits` (to handle credit-like spending and refills)
 
 These gems are related but not overlapping. They're complementary. The boundaries are:
  - [`pay`](https://github.com/pay-rails/pay) handles billing
@@ -32,6 +32,34 @@ As long as a matching `stripe_price` is found in the `pricing_plans.rb` initiali
 > ```
 >
 > You can come up with similar solutions, like adding that config to a plaintext `.yml` file if you don't want to store this info in the credentials file, but this is the overall idea.
+
+## `paddle_rails` gem
+
+Works the same way as `pay` — just use `paddle_rails_price` instead of `stripe_price`:
+
+```ruby
+plan :pro do
+  price 29
+  paddle_rails_price month: "pri_abc123monthly", year: "pri_abc123yearly"
+end
+```
+
+When a user has an active `paddle_rails` subscription matching a configured price ID, `pricing_plans` auto-detects it and enforces the corresponding limits. No manual assignment or callbacks needed.
+
+Plan resolution order:
+
+1. Manual `Assignment` override
+2. `pay` subscription (via `stripe_price`)
+3. `paddle_rails` subscription (via `paddle_rails_price`)
+4. Default plan
+
+> [!TIP]
+> Use per-environment encrypted credentials (`bin/rails credentials:edit --environment development`) to manage different Paddle price IDs across environments:
+>
+> ```ruby
+> paddle_rails_price month: Rails.application.credentials.dig(:paddle_plans, :pro, :monthly),
+>                    year: Rails.application.credentials.dig(:paddle_plans, :pro, :yearly)
+> ```
 
 ## `usage_credits` gem
 

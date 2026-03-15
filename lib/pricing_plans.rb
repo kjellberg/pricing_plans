@@ -25,6 +25,7 @@ module PricingPlans
   autoload :IntegerRefinements, "pricing_plans/integer_refinements"
   autoload :PlanResolver, "pricing_plans/plan_resolver"
   autoload :PaySupport, "pricing_plans/pay_support"
+  autoload :PaddleRailsSupport, "pricing_plans/paddle_rails_support"
   autoload :LimitChecker, "pricing_plans/limit_checker"
   autoload :LimitableRegistry, "pricing_plans/limit_checker"
   autoload :ExceededStateUtils, "pricing_plans/exceeded_state_utils"

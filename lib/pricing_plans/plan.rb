@@ -16,6 +16,7 @@ module PricingPlans
       @price = nil
       @price_string = nil
       @stripe_price = nil
+      @paddle_rails_price = nil
       @features = Set.new
       @limits = {}
       @credits_included = nil
@@ -91,6 +92,7 @@ module PricingPlans
     # Ergonomic predicate for UI/logic (free means explicit 0 price or explicit "Free" label)
     def free?
       return false if @stripe_price
+      return false if @paddle_rails_price
       return true if @price.respond_to?(:to_i) && @price.to_i.zero?
       return true if @price_string && @price_string.to_s.strip.casecmp("Free").zero?
       false
@@ -124,6 +126,25 @@ module PricingPlans
         @stripe_price
       else
         set_stripe_price(value)
+      end
+    end
+
+    def set_paddle_rails_price(value)
+      case value
+      when String
+        @paddle_rails_price = { id: value }
+      when Hash
+        @paddle_rails_price = value
+      else
+        raise ConfigurationError, "paddle_rails_price must be a string or hash"
+      end
+    end
+
+    def paddle_rails_price(value = nil)
+      if value.nil?
+        @paddle_rails_price
+      else
+        set_paddle_rails_price(value)
       end
     end
 
@@ -296,7 +317,7 @@ module PricingPlans
     # (keep single definition above)
 
     def purchasable?
-      !!@stripe_price || (!free? && !!@price)
+      !!@stripe_price || !!@paddle_rails_price || (!free? && !!@price)
     end
 
     # Human label to display price in UIs. Prefers explicit string, then numeric, else contact.
